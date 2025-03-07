@@ -1,2 +1,6 @@
-# robot_obstacle_avoiding
-Obstacle Avoiding Robot (Arduino uno)
+
+# Obstacle Avoiding Robot (Arduino uno)
+
+## Required
+- ### Adafruit Motor Shield
+- ### Adafruit BusIO
