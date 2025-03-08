@@ -94,7 +94,7 @@ public:
    * 
    * @return The calculated distance in centimeters.
    */
-  float calculate_distance_to_start();
+  float calculate_distance_to_start() const;
 
   /**
    * @brief Get the current X-coordinate of the robot.

@@ -51,6 +51,6 @@ void robot_position::move_backward() {
   _y_position -= _move_distance;
 }
 
-float robot_position::calculate_distance_to_start() {
+float robot_position::calculate_distance_to_start() const {
   return sqrt(_x_position * _x_position + _y_position * _y_position);
 }

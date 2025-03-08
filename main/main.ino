@@ -59,7 +59,7 @@ private:
   Adafruit_DCMotor *_right_front;  ///< Right front motor
   Adafruit_DCMotor *_left_front;   ///< Left front motor
   Adafruit_DCMotor *_left_back;    ///< Left back motor
-  Servo _servo_look;               ///< Servo to control the looking direction
+  Servo *_servo_look;              ///< Servo to control the looking direction
 
 public:
   /**
@@ -68,6 +68,7 @@ public:
   obstacle_avoiding_robot() {
     _afms = new Adafruit_MotorShield();
     _rp = new robot_position();
+    _servo_look = new Servo();
     _right_back = _afms->getMotor(1);
     _right_front = _afms->getMotor(2);
     _left_front = _afms->getMotor(3);
@@ -77,6 +78,7 @@ public:
   ~obstacle_avoiding_robot() {
     delete _afms;
     delete _rp;
+    delete _servo_look;
   }
 
   /**
@@ -97,11 +99,11 @@ public:
     // Ensure motors are stopped
     stop_move();
 
-    _servo_look.attach(10);  // Attach servo to pin 10
-    pinMode(_trig, OUTPUT);  // Set trigger pin as output
-    pinMode(_echo, INPUT);   // Set echo pin as input
+    _servo_look->attach(10);  // Attach servo to pin 10
+    pinMode(_trig, OUTPUT);   // Set trigger pin as output
+    pinMode(_echo, INPUT);    // Set echo pin as input
   }
-  
+
   /**
   * Function to check if the battery is low and if so, return the robot to its start position.
   * It puts the robot in sleep mode if the battery is low after starting the return process.
@@ -133,8 +135,8 @@ public:
 
     if (go_to_start_position()) return;
 
-    _servo_look.write(90);  // Look straight ahead
-    delay(750);             // Wait before measuring distance
+    _servo_look->write(90);  // Look straight ahead
+    delay(750);              // Wait before measuring distance
 
 
     int distance = get_distance();  // Get the current distance from the obstacle
@@ -205,7 +207,7 @@ private:
       } else if (_rp->get_x_position() < 0) {
         turn_right(400);  // Move right if the robot is too far to the left
       } else if (_rp->get_y_position() > 0) {
-        move_backward();  // Move backward if the robot is too far down
+        move_backward(400);  // Move backward if the robot is too far down
       } else if (_rp->get_y_position() < 0) {
         move_forward();  // Move forward if the robot is too far up
       }
@@ -232,105 +234,176 @@ private:
     _left_back->run(FORWARD);
   }
 
-  // Function to move robot backward
-  void move_backward() {
-    _rp->move_backward();
-    _right_back->run(BACKWARD);
-    _right_front->run(BACKWARD);
-    _left_front->run(BACKWARD);
-    _left_back->run(BACKWARD);
-  }
   /**
-   * Stops the robot by releasing all motors.
-   */
-  void stop_move() {
-    _right_back->run(RELEASE);
-    _right_front->run(RELEASE);
-    _left_front->run(RELEASE);
-    _left_back->run(RELEASE);
+  * @brief Moves the robot backward for a specified duration.
+  * 
+  * This function makes the robot move backward by activating all four motors
+  * (left and right front and back motors) to run in the backward direction.
+  * It also ensures that the motor speed is reset after the movement, and the
+  * movement is stopped once the specified duration has passed.
+  * 
+  * @param duration The time, in milliseconds, for which the robot will move backward.
+  *                 The robot will move for the entire specified duration before stopping.
+  * 
+  * @note After the movement is completed, the motor speeds are reset, and the motors
+  *       are stopped to ensure that the robot doesn't continue moving.
+  */
+  void move_backward(int duration) {
+    _rp->move_backward();
+    _right_back->run(BACKWARD);   // Move the right back motor in the backward direction
+    _right_front->run(BACKWARD);  // Move the right front motor in the backward direction
+    _left_front->run(BACKWARD);   // Move the left front motor in the backward direction
+    _left_back->run(BACKWARD);    // Move the left back motor in the backward direction
+    delay(duration);              // Move for the specified duration (in milliseconds)
+    reset_motor_speed();          // Reset the motor speed after movement
+    stop_move();                  // Stop the motors to halt the movement
   }
 
   /**
-   * Turns the robot left for a specified duration.
-   * 
-   * @param duration The duration to turn left.
-   */
+  * @brief Stops the robot by releasing all motors.
+  * 
+  * This function halts the robot's movement by releasing control of all the motors. 
+  * It ensures that all four motors (right front, right back, left front, and left back) 
+  * are stopped, effectively bringing the robot to a halt. The motors are not actively 
+  * powered but are released from their running state.
+  * 
+  * @note Calling this function does not immediately stop the motors in their tracks, 
+  *       but it ensures that the motors no longer receive commands to continue moving.
+  *       For a smoother stop, you may want to use deceleration methods beforehand.
+  */
+  void stop_move() {
+      _right_back->run(RELEASE);    // Release the right back motor
+      _right_front->run(RELEASE);   // Release the right front motor
+      _left_front->run(RELEASE);    // Release the left front motor
+      _left_back->run(RELEASE);     // Release the left back motor
+  }
+
+  /**
+  * @brief Turns the robot left for a specified duration.
+  * 
+  * This function moves the robot in a leftward direction by running the left 
+  * and right motors in opposite directions, resulting in a turn. The turn 
+  * speed is controlled by the `_turn_speed` variable, and the robot will 
+  * continue turning for the specified duration. After the movement, the 
+  * motor speeds are reset, and the motors are stopped.
+  * 
+  * @param duration The time, in milliseconds, for which the robot will turn left.
+  *                 The robot will continue turning for the entire specified duration 
+  *                 before stopping.
+  * 
+  * @note After the turn is completed, the motor speeds are reset, and the motors 
+  *       are stopped to ensure that the robot does not continue turning.
+  */
   void turn_left(int duration) {
     _rp->move_left();
-    set_turn_speed(_turn_speed);
-    _right_back->run(FORWARD);
-    _right_front->run(FORWARD);
-    _left_front->run(BACKWARD);
-    _left_back->run(BACKWARD);
-    delay(duration);
-    reset_motor_speed();
-    stop_move();
+    set_turn_speed(_turn_speed);  // Set the turning speed based on _turn_speed
+    _right_back->run(FORWARD);    // Move the right back motor forward
+    _right_front->run(FORWARD);   // Move the right front motor forward
+    _left_front->run(BACKWARD);   // Move the left front motor backward
+    _left_back->run(BACKWARD);    // Move the left back motor backward
+    delay(duration);              // Turn for the specified duration (in milliseconds)
+    reset_motor_speed();          // Reset the motor speed after the turn
+    stop_move();                  // Stop the motors to halt the turn
   }
 
   /**
-   * Turns the robot right for a specified duration.
-   * 
-   * @param duration The duration to turn right.
-   */
+  * @brief Turns the robot right for a specified duration.
+  * 
+  * This function moves the robot in a rightward direction by running the left 
+  * and right motors in opposite directions, causing the robot to turn right. 
+  * The turn speed is controlled by the `_turn_speed` variable, and the robot 
+  * will continue turning for the specified duration. After the movement, the 
+  * motor speeds are reset, and the motors are stopped.
+  * 
+  * @param duration The time, in milliseconds, for which the robot will turn right.
+  *                 The robot will continue turning for the entire specified duration 
+  *                 before stopping.
+  * 
+  * @note After the turn is completed, the motor speeds are reset, and the motors 
+  *       are stopped to ensure that the robot does not continue turning.
+  */
   void turn_right(int duration) {
     _rp->move_right();
-    set_turn_speed(_turn_speed);
-    _right_back->run(BACKWARD);
-    _right_front->run(BACKWARD);
-    _left_front->run(FORWARD);
-    _left_back->run(FORWARD);
-    delay(duration);
-    reset_motor_speed();
-    stop_move();
+    set_turn_speed(_turn_speed);  // Set the turning speed based on _turn_speed
+    _right_back->run(BACKWARD);   // Move the right back motor backward
+    _right_front->run(BACKWARD);  // Move the right front motor backward
+    _left_front->run(FORWARD);    // Move the left front motor forward
+    _left_back->run(FORWARD);     // Move the left back motor forward
+    delay(duration);              // Turn for the specified duration (in milliseconds)
+    reset_motor_speed();          // Reset the motor speed after the turn
+    stop_move();                  // Stop the motors to halt the turn
   }
 
   /**
-   * Sets turn speed for all motors.
-   * 
-   * @param speed The speed to be added to the motors during turns.
-   */
+  * @brief Sets the turn speed for all motors.
+  * 
+  * This function adjusts the speed of the motors during a turn by adding a specified 
+  * `speed` value to the current motor speeds. The left and right motors are adjusted 
+  * separately for smoother turns.
+  * 
+  * @param speed The speed to be added to the motors during turns. This value will 
+  *              increase the turn speed, making the robot turn faster. It is added 
+  *              to the default motor speed (`_motor_speed`).
+  * 
+  * @note The left motors are also offset by `_motor_offset` to ensure that turning 
+  *       is smooth and effective.
+  */
   void set_turn_speed(uint8_t speed) {
-    _right_back->setSpeed(_motor_speed + speed);
-    _right_front->setSpeed(_motor_speed + speed);
-    _left_front->setSpeed(_motor_speed + _motor_offset + speed);
-    _left_back->setSpeed(_motor_speed + _motor_offset + speed);
+    _right_back->setSpeed(_motor_speed + speed);                  // Set speed for right back motor
+    _right_front->setSpeed(_motor_speed + speed);                 // Set speed for right front motor
+    _left_front->setSpeed(_motor_speed + _motor_offset + speed);  // Set speed for left front motor with offset
+    _left_back->setSpeed(_motor_speed + _motor_offset + speed);   // Set speed for left back motor with offset
   }
 
   /**
-   * Resets motor speed to default speed.
-   */
+  * @brief Resets motor speed to the default speed.
+  * 
+  * This function resets the motor speeds to their default values, ensuring that 
+  * the motors are running at the base speed (`_motor_speed`) for regular movement, 
+  * without any turn-specific speed adjustments.
+  */
   void reset_motor_speed() {
-    _right_back->setSpeed(_motor_speed);
-    _right_front->setSpeed(_motor_speed);
-    _left_front->setSpeed(_motor_speed + _motor_offset);
-    _left_back->setSpeed(_motor_speed + _motor_offset);
+    _right_back->setSpeed(_motor_speed);                  // Reset speed for right back motor
+    _right_front->setSpeed(_motor_speed);                 // Reset speed for right front motor
+    _left_front->setSpeed(_motor_speed + _motor_offset);  // Reset speed for left front motor with offset
+    _left_back->setSpeed(_motor_speed + _motor_offset);   // Reset speed for left back motor with offset
   }
 
   /**
-   * Gradually accelerates motors to smoothen the start of movement.
-   */
+  * @brief Gradually accelerates motors to smoothen the start of movement.
+  * 
+  * This function smoothly increases the motor speeds from 0 to the desired speed (`_motor_speed`) 
+  * to provide a smoother start to the robot's movement. The gradual acceleration prevents sudden jerks 
+  * and ensures that the robot starts moving more smoothly.
+  */
   void accelerate() {
     for (uint8_t speed = 0; speed <= _motor_speed; speed++) {
-      _right_back->setSpeed(speed);
-      _right_front->setSpeed(speed);
-      _left_front->setSpeed(speed + _motor_offset);
-      _left_back->setSpeed(speed + _motor_offset);
-      delay(20);  // Delay for smoother transition
+      _right_back->setSpeed(speed);                  // Gradually increase speed for right back motor
+      _right_front->setSpeed(speed);                 // Gradually increase speed for right front motor
+      _left_front->setSpeed(speed + _motor_offset);  // Gradually increase speed for left front motor with offset
+      _left_back->setSpeed(speed + _motor_offset);   // Gradually increase speed for left back motor with offset
+      delay(20);                                     // Delay for smoother transition
     }
   }
 
   /**
-   * Gradually decelerates motors to smoothen the stop of movement.
-   */
+  * @brief Gradually decelerates motors to smoothen the stop of movement.
+  * 
+  * This function gradually decreases the motor speeds from the current speed 
+  * (`_motor_speed`) to 0, ensuring that the robot slows down smoothly and does 
+  * not come to an abrupt stop. The deceleration helps prevent the robot from 
+  * jerking or skidding when stopping.
+  */
   void decelerate() {
     for (uint8_t speed = _motor_speed; speed >= 0; speed--) {
-      _right_back->setSpeed(speed);
-      _right_front->setSpeed(speed);
-      _left_front->setSpeed(speed + _motor_offset);
-      _left_back->setSpeed(speed + _motor_offset);
-      delay(20);  // Delay for smoother transition
+      _right_back->setSpeed(speed);                  // Gradually decrease speed for right back motor
+      _right_front->setSpeed(speed);                 // Gradually decrease speed for right front motor
+      _left_front->setSpeed(speed + _motor_offset);  // Gradually decrease speed for left front motor with offset
+      _left_back->setSpeed(speed + _motor_offset);   // Gradually decrease speed for left back motor with offset
+      delay(20);                                     // Delay for smoother transition
     }
   }
+
 
   /**
    * Measures the distance to an object using ultrasonic sensor.
@@ -361,12 +434,12 @@ private:
     uint8_t turn_dir = 1;         // Default turn direction (1 for reverse)
 
     // Move servo to the right to check the distance
-    _servo_look.write(180);         // Look to the right
+    _servo_look->write(180);        // Look to the right
     delay(500);                     // Wait for the servo to reach the right position
     distances[0] = get_distance();  // Measure the distance to the right
 
     // Move servo to the left to check the distance
-    _servo_look.write(0);           // Look to the left
+    _servo_look->write(0);          // Look to the left
     delay(1000);                    // Wait for the servo to reach the left position
     distances[1] = get_distance();  // Measure the distance to the left
 

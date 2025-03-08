@@ -1,0 +1,68 @@
+#include <Wire.h>
+#include <Adafruit_MotorShield.h>
+#include "utility/Adafruit_MotorShield.h"
+
+// Constants for the wheel size and encoder counts
+const float wheelDiameter = 6.0;     // Wheel diameter in cm (adjust as needed)
+const int pulsesPerRevolution = 20;   // Number of pulses per full wheel rotation (depends on your encoder)
+
+// MotorShield setup
+Adafruit_MotorShield AFMS = Adafruit_MotorShield();  // Create the motor shield object
+Adafruit_DCMotor *myMotor = AFMS.getMotor(1);       // Motor 1 (adjust as needed)
+
+// Variables for counting encoder pulses
+volatile int pulseCount = 0;   // Pulse count variable to track encoder pulses
+
+// Interrupt Service Routine (ISR) to count pulses from encoder
+void countPulses() {
+  pulseCount++;
+}
+
+void setup() {
+  // Start the Serial communication
+  Serial.begin(9600);
+
+  // Initialize the Motor Shield
+  AFMS.begin();
+
+  // Set up the encoder pulse pin as an input
+  pinMode(2, INPUT);  // Assuming encoder is connected to digital pin 2
+  attachInterrupt(digitalPinToInterrupt(2), countPulses, RISING);  // Count pulses on rising edge
+
+  // Start the motor (optional for initial movement)
+  myMotor->setSpeed(255);  // Full speed (0-255)
+  myMotor->run(FORWARD);   // Rotate forward (adjust as needed)
+
+  // Display the wheel circumference
+  Serial.print("Wheel Circumference: ");
+  Serial.print(PI * wheelDiameter);
+  Serial.println(" cm");
+
+  // Display the maximum distance per minute (based on RPM)
+  float distancePerMinute = PI * wheelDiameter * 60; // Assuming 60 RPM
+  Serial.print("Distance per minute at 60 RPM: ");
+  Serial.print(distancePerMinute);
+  Serial.println(" cm");
+}
+
+void loop() {
+  // Track the distance moved
+  int currentPulseCount = pulseCount;
+
+  // Calculate the distance moved based on pulse count
+  float distanceMoved = (float)currentPulseCount / pulsesPerRevolution * (PI * wheelDiameter);
+
+  // Output the current pulse count and distance moved
+  Serial.print("Pulse Count: ");
+  Serial.print(currentPulseCount);
+  Serial.print(" | Distance Moved: ");
+  Serial.print(distanceMoved);
+  Serial.println(" cm");
+
+  // Optional: You can stop the motor after a certain distance is moved
+  if (distanceMoved >= 100.0) {  // Stop after moving 100 cm (adjust as needed)
+    myMotor->run(RELEASE);  // Stop the motor
+  }
+
+  delay(1000);  // Update every second
+}
