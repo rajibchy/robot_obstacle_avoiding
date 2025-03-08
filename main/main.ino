@@ -39,10 +39,11 @@ constexpr uint8_t _motor_speed = 55;   ///< Motor speed (0 to 255)
 constexpr uint8_t _motor_offset = 10;  ///< Motor offset to balance motor power
 constexpr uint8_t _turn_speed = 50;    ///< Speed boost for turning
 
-constexpr uint8_t _battery_pin = A0;
-constexpr float _r1 = 100000.0;
-constexpr float _r2 = 10000.0;  // Voltage divider resistors
-constexpr float _low_battery_threshold = 3.3;   // Set according to battery type
+
+constexpr uint8_t _battery_pin = A0; ///< Analog pin to read battery voltage.
+constexpr float _r1 = 100000.0; ///< Resistor R1 in the voltage divider (100kΩ) resistors.
+constexpr float _r2 = 10000.0;  ///< Resistor R2 in the voltage divider (10kΩ) resistors.
+constexpr float _low_battery_threshold = 3.3; ///< Voltage level to trigger low battery warning.
 
 
 /**
@@ -102,9 +103,9 @@ public:
    * If an obstacle is detected, it stops and checks the direction to avoid the obstacle.
    */
   void loop() {
-    _servo_look.write(90);          // Look straight ahead
-    delay(750);                     // Wait before measuring distance
-    
+    _servo_look.write(90);  // Look straight ahead
+    delay(750);             // Wait before measuring distance
+
     battery_calculate();
 
     int distance = get_distance();  // Get the current distance from the obstacle
@@ -134,16 +135,25 @@ public:
   }
 
 private:
-
+  /**
+  * @brief Reads battery voltage and checks for low battery condition.
+  * 
+  * This function:
+  * - Reads the analog value from the battery pin.
+  * - Converts it to actual voltage using the voltage divider formula.
+  * - Prints a low battery warning if voltage is below the threshold.
+  */
   void battery_calculate() {
-    int raw_value = analogRead(_battery_pin);
+    int raw_value = analogRead(_battery_pin);  // Read raw ADC value from battery pin
+
+    // Convert raw ADC value to actual voltage using the voltage divider formula
     float voltage = (raw_value / 1023.0) * 5.0 * ((_r1 + _r2) / _r2);
 
     if (voltage < _low_battery_threshold) {
-      Serial.println("Low Battery! Charge now.");
+      Serial.println("Low Battery! Charge now.");  // Warning message
     } else {
       Serial.print("Battery Voltage: ");
-      Serial.println(voltage);
+      Serial.println(voltage);  // Print the battery voltage
     }
   }
   /**
