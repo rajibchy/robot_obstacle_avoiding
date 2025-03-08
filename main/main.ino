@@ -23,7 +23,7 @@
 */
 
 // Rajib chy
-// 12:24 AM 3/8/2025
+// 12:24 AM 3/8/2021
 // Obstacle Avoiding Robot
 
 #include <Adafruit_MotorShield.h>
@@ -38,12 +38,19 @@ constexpr float _time_out = 2 * (_max_dist + 10) / 100 / 340 * 1000000;  ///< Ti
 constexpr uint8_t _motor_speed = 55;   ///< Motor speed (0 to 255)
 constexpr uint8_t _motor_offset = 10;  ///< Motor offset to balance motor power
 constexpr uint8_t _turn_speed = 50;    ///< Speed boost for turning
+
+constexpr uint8_t _battery_pin = A0;
+constexpr float _r1 = 100000.0;
+constexpr float _r2 = 10000.0;  // Voltage divider resistors
+constexpr float _low_battery_threshold = 3.3;   // Set according to battery type
+
+
 /**
  * Class to control the obstacle-avoiding robot with motor shield and ultrasonic sensor.
  */
 class obstacle_avoiding_robot {
 private:
-  Adafruit_MotorShield _afms;      ///< Motor shield object
+  Adafruit_MotorShield *_afms;     ///< Motor shield object
   Adafruit_DCMotor *_right_back;   ///< Right back motor
   Adafruit_DCMotor *_right_front;  ///< Right front motor
   Adafruit_DCMotor *_left_front;   ///< Left front motor
@@ -55,20 +62,24 @@ public:
    * Constructor to initialize the motor shield and components.
    */
   obstacle_avoiding_robot() {
-    _afms = Adafruit_MotorShield();
-    _right_back = _afms.getMotor(1);
-    _right_front = _afms.getMotor(2);
-    _left_front = _afms.getMotor(3);
-    _left_back = _afms.getMotor(4);
+    _afms = new Adafruit_MotorShield();
+    _right_back = _afms->getMotor(1);
+    _right_front = _afms->getMotor(2);
+    _left_front = _afms->getMotor(3);
+    _left_back = _afms->getMotor(4);
+  }
+
+  ~obstacle_avoiding_robot() {
+    delete _afms;
   }
 
   /**
    * Setup the robot's components: Motor shield, servo, and ultrasonic sensor.
    */
   void begin() {
-    Serial.begin(9600);    // Start serial communication
-    if (!_afms.begin()) {  // Check if the motor shield is detected
-      while (1) {}         // Stop execution if motor shield is not found
+    Serial.begin(9600);     // Start serial communication
+    if (!_afms->begin()) {  // Check if the motor shield is detected
+      while (1) {}          // Stop execution if motor shield is not found
     }
 
     // Set motor speeds
@@ -93,6 +104,9 @@ public:
   void loop() {
     _servo_look.write(90);          // Look straight ahead
     delay(750);                     // Wait before measuring distance
+    
+    battery_calculate();
+
     int distance = get_distance();  // Get the current distance from the obstacle
 
     // Move forward if no obstacle is too close
@@ -102,8 +116,8 @@ public:
 
     // Keep checking until the distance is less than _stop_dist
     while (distance >= _stop_dist) {
-      distance = get_distance();
       delay(250);  // Wait before re-checking distance
+      distance = get_distance();
     }
 
     decelerate();  // Smooth stop when obstacle is too close
@@ -120,6 +134,18 @@ public:
   }
 
 private:
+
+  void battery_calculate() {
+    int raw_value = analogRead(_battery_pin);
+    float voltage = (raw_value / 1023.0) * 5.0 * ((_r1 + _r2) / _r2);
+
+    if (voltage < _low_battery_threshold) {
+      Serial.println("Low Battery! Charge now.");
+    } else {
+      Serial.print("Battery Voltage: ");
+      Serial.println(voltage);
+    }
+  }
   /**
    * Moves the robot forward by running all motors in the forward direction.
    */
@@ -277,7 +303,7 @@ private:
 };
 
 // Create an instance of the robot
-obstacle_avoiding_robot robot;
+static const obstacle_avoiding_robot robot;
 
 void setup() {
   robot.begin();
