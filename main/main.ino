@@ -24,7 +24,7 @@
 
 // Rajib chy
 // 12:24 AM 3/8/2025
-// Obstacle Avoiding Robot
+// Robot Obstacle Avoidance with Low Power Management (Arduino Uno)
 
 #include <Adafruit_MotorShield.h>
 #include <Servo.h>
@@ -75,6 +75,26 @@ public:
     _left_back = _afms->getMotor(4);
   }
 
+  /**
+  * @brief Destructor for the `obstacle_avoiding_robot` class.
+  * 
+  * This destructor is responsible for cleaning up and releasing resources when the 
+  * `obstacle_avoiding_robot` object is destroyed. It ensures that all dynamically 
+  * allocated memory associated with the object is properly freed to prevent memory 
+  * leaks.
+  * 
+  * Specifically, it deletes the following objects:
+  * - `_afms`: A pointer to the Adafruit Motor Shield instance, which controls the robot's motors.
+  * - `_rp`: A pointer to the robot's position object, which tracks the robot's current position.
+  * - `_servo_look`: A pointer to the servo motor used for scanning and obstacle detection.
+  * 
+  * These deletions ensure that all dynamically allocated memory is properly managed 
+  * and cleaned up when the object goes out of scope or is explicitly destroyed.
+  * 
+  * @note This destructor does not free any memory associated with statically allocated 
+  *       members or memory managed by other parts of the program. It only manages 
+  *       memory specifically allocated within the `obstacle_avoiding_robot` class.
+  */
   ~obstacle_avoiding_robot() {
     delete _afms;
     delete _rp;
@@ -105,10 +125,28 @@ public:
   }
 
   /**
-  * Function to check if the battery is low and if so, return the robot to its start position.
-  * It puts the robot in sleep mode if the battery is low after starting the return process.
-  *
-  * @return true if the robot successfully starts returning to the start position, false otherwise.
+  * @brief Checks if the battery is low and, if so, returns the robot to its start position.
+  * 
+  * This function monitors the robot's battery level. If the battery is low, the robot 
+  * will attempt to return to its start position using the `return_to_start` function. 
+  * Once the return process begins, the robot will enter a low-power sleep mode to 
+  * conserve energy, allowing it to save power until it either runs out of battery or 
+  * the sleep period expires.
+  * 
+  * The robot will enter sleep mode for 8 seconds (as controlled by the `LowPower` library) 
+  * to reduce power consumption during the return process. The sleep mode helps prevent 
+  * further battery depletion during the return journey.
+  * 
+  * @return bool Returns `true` if the robot successfully starts returning to the start 
+  *         position (battery is low), or `false` if the battery is not low and no 
+  *         return process is initiated.
+  * 
+  * @note This function is intended to be called when the robot detects that its battery 
+  *       is running low, and it is not designed to monitor battery levels continuously.
+  *       The sleep mode helps the robot conserve energy while returning to the start position.
+  * 
+  * @see return_to_start() for the procedure that brings the robot back to its start position.
+  * @see battery_calculate() for the logic that checks the battery level.
   */
   bool go_to_start_position() {
     // Check if the battery is low
@@ -126,6 +164,7 @@ public:
     // Return false if the battery is not low
     return false;
   }
+
   /**
    * Main loop to control robot's movement.
    * The robot moves forward if no obstacle is detected. 
@@ -161,12 +200,14 @@ public:
     // Turn based on the best direction
     switch (turn_dir) {
       case 0: turn_left(400); break;
-      case 1: turn_left(700); break;
+      // case 1: turn_left(700); break;
+      case 1: move_backward(700); break;
       case 2: turn_right(400); break;
     }
   }
 
 private:
+
   /**
   * @brief Reads battery voltage and checks for low battery condition.
   * 
@@ -191,9 +232,27 @@ private:
   }
 
   /**
-  * Function to drive the robot back to the start position.
-  * The robot will move step-by-step, adjusting its position along the X and Y axes.
-  * It will stop when the robot reaches its starting point (within a defined threshold).
+  * @brief Drives the robot back to the start position, adjusting its position along 
+  *        the X and Y axes.
+  * 
+  * This function guides the robot step-by-step back to its start position. It continuously 
+  * adjusts the robot's movement based on its current position relative to the start 
+  * position along the X and Y axes. The robot will move either left, right, forward, 
+  * or backward depending on the distance between the robot's current position and the 
+  * starting point.
+  * 
+  * The movement will continue until the robot reaches the start position within a defined 
+  * threshold (1.0 unit) to avoid issues with floating-point precision. The function 
+  * dynamically recalculates the distance to the start point after each movement to 
+  * ensure accurate navigation. Once the robot is within the threshold distance, it will stop.
+  * 
+  * @note The robot adjusts its movement based on the position relative to the X and Y axes 
+  *       (using `get_x_position()` and `get_y_position()`). The function ensures the robot 
+  *       returns to its start position smoothly by executing small movements in either 
+  *       direction.
+  * 
+  * @see calculate_distance_to_start() for how the distance is measured.
+  * @see stop_move() for stopping the robot after reaching the start position.
   */
   void return_to_start() {
     // Calculate the distance to the start position
@@ -222,9 +281,24 @@ private:
     // Stop the robot once it reaches the start position
     stop_move();
   }
+
   /**
-   * Moves the robot forward by running all motors in the forward direction.
-   */
+  * @brief Moves the robot forward by running all motors in the forward direction.
+  * 
+  * This function initiates movement by commanding all four motors (right front, right back, 
+  * left front, and left back) to run in the forward direction. The movement is accompanied 
+  * by a smooth acceleration to avoid sudden starts and provide a more controlled movement.
+  * 
+  * The `accelerate()` function is called before the motors are activated to gradually 
+  * increase the speed, ensuring smoother and more stable motion. This is especially important 
+  * in robotic applications where abrupt movements may cause instability or discomfort.
+  * 
+  * @note The motors will continue running in the forward direction until another command 
+  *       (such as stop or turn) is issued. This function only moves the robot forward 
+  *       without any checks for obstacles or path planning.
+  * 
+  * @see accelerate() for how the acceleration is applied.
+  */
   void move_forward() {
     _rp->move_forward();
     accelerate();  // Smooth acceleration when moving forward
@@ -272,10 +346,10 @@ private:
   *       For a smoother stop, you may want to use deceleration methods beforehand.
   */
   void stop_move() {
-      _right_back->run(RELEASE);    // Release the right back motor
-      _right_front->run(RELEASE);   // Release the right front motor
-      _left_front->run(RELEASE);    // Release the left front motor
-      _left_back->run(RELEASE);     // Release the left back motor
+    _right_back->run(RELEASE);   // Release the right back motor
+    _right_front->run(RELEASE);  // Release the right front motor
+    _left_front->run(RELEASE);   // Release the left front motor
+    _left_back->run(RELEASE);    // Release the left back motor
   }
 
   /**
@@ -395,7 +469,7 @@ private:
   * jerking or skidding when stopping.
   */
   void decelerate() {
-    for (uint8_t speed = _motor_speed; speed >= 0; speed--) {
+    for (int8_t speed = _motor_speed; speed >= 0; speed--) {
       _right_back->setSpeed(speed);                  // Gradually decrease speed for right back motor
       _right_front->setSpeed(speed);                 // Gradually decrease speed for right front motor
       _left_front->setSpeed(speed + _motor_offset);  // Gradually decrease speed for left front motor with offset
@@ -404,12 +478,30 @@ private:
     }
   }
 
-
   /**
-   * Measures the distance to an object using ultrasonic sensor.
-   * 
-   * @return The distance to the nearest object in centimeters.
-   */
+  * @brief Measures the distance to the nearest object using an ultrasonic sensor.
+  * 
+  * This function sends an ultrasonic pulse through the sensor and measures the time 
+  * it takes for the pulse to return after bouncing off an object. The function uses 
+  * the `pulseIn` method to calculate the pulse duration from the echo pin, which 
+  * represents the time for the pulse to travel to the object and back.
+  * 
+  * The distance is then calculated using the formula:
+  * 
+  * \[ \text{Distance} = \frac{\text{pulse\_time} \times \text{speed\_of\_sound}}{2} \]
+  * 
+  * where the speed of sound is 340 m/s, and the division by 2 accounts for the round 
+  * trip of the pulse (to the object and back). The result is converted to centimeters 
+  * by dividing by 10000.
+  * 
+  * @return int The distance to the nearest object in centimeters.
+  * 
+  * @note This function assumes the ultrasonic sensor is properly connected with 
+  *       the trigger pin (`_trig`) and echo pin (`_echo`), and that the sensor's 
+  *       timeout value (`_time_out`) is appropriately configured.
+  * 
+  * @see pulseIn() for how the pulse width is measured.
+  */
   int get_distance() {
     unsigned long pulse_time;  // Variable to store the time it takes for the ultrasonic pulse to return
 
@@ -424,11 +516,32 @@ private:
     // Calculate and return the distance based on the pulse time
     return pulse_time * 340 / 2 / 10000;  // Distance in cm (speed of sound is 340 m/s, divide by 2 for round trip, and by 10000 to convert to cm)
   }
+
   /**
-   * Checks the left and right directions and determines which way to turn.
-   * 
-   * @return The direction to turn: 0 for left, 1 for reverse, 2 for right.
-   */
+  * @brief Checks the left and right directions and determines which way to turn.
+  * 
+  * This function uses a servo to measure the distance on both the left and right 
+  * sides of the robot. Based on the distances, it decides which direction the robot 
+  * should turn: left, right, or reverse. The decision-making process ensures the 
+  * robot turns based on available space and obstacles.
+  * 
+  * The servo is moved to the right and left to measure distances, and based on 
+  * the readings, a decision is made:
+  * - If both sides have clear space, it turns left.
+  * - If both sides are blocked, it reverses.
+  * - If one side has more space, it chooses that direction.
+  * 
+  * @return uint8_t The direction to turn:
+  *                  - 0 for left,
+  *                  - 1 for reverse,
+  *                  - 2 for right.
+  * 
+  * @note The function relies on distance measurements to make the decision, 
+  *       so it’s essential that the `get_distance()` function provides accurate 
+  *       readings. The servo’s position is adjusted to check the left and right 
+  *       sides of the robot, and there are delays to ensure the servo has enough 
+  *       time to move to the correct positions.
+  */
   uint8_t check_direction() {
     int distances[2] = { 0, 0 };  // Array to store the distances for both directions (right and left)
     uint8_t turn_dir = 1;         // Default turn direction (1 for reverse)
@@ -461,7 +574,7 @@ private:
 };
 
 // Create an instance of the robot
-static const obstacle_avoiding_robot robot;
+static obstacle_avoiding_robot robot;
 
 void setup() {
   robot.begin();
