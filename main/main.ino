@@ -23,11 +23,13 @@
 */
 
 // Rajib chy
-// 12:24 AM 3/8/2021
+// 12:24 AM 3/8/2025
 // Obstacle Avoiding Robot
 
 #include <Adafruit_MotorShield.h>
 #include <Servo.h>
+#include <LowPower.h>
+#include "robot-position.h"
 
 constexpr uint8_t _trig = 2;                                             ///< Trigger pin for ultrasonic sensor
 constexpr uint8_t _echo = 13;                                            ///< Echo pin for ultrasonic sensor
@@ -40,10 +42,10 @@ constexpr uint8_t _motor_offset = 10;  ///< Motor offset to balance motor power
 constexpr uint8_t _turn_speed = 50;    ///< Speed boost for turning
 
 
-constexpr uint8_t _battery_pin = A0; ///< Analog pin to read battery voltage.
-constexpr float _r1 = 100000.0; ///< Resistor R1 in the voltage divider (100kΩ) resistors.
-constexpr float _r2 = 10000.0;  ///< Resistor R2 in the voltage divider (10kΩ) resistors.
-constexpr float _low_battery_threshold = 3.3; ///< Voltage level to trigger low battery warning.
+constexpr uint8_t _battery_pin = A0;           ///< Analog pin to read battery voltage.
+constexpr float _r1 = 100000.0;                ///< Resistor R1 in the voltage divider (100kΩ) resistors.
+constexpr float _r2 = 10000.0;                 ///< Resistor R2 in the voltage divider (10kΩ) resistors.
+constexpr float _low_battery_threshold = 3.3;  ///< Voltage level to trigger low battery warning.
 
 
 /**
@@ -51,6 +53,7 @@ constexpr float _low_battery_threshold = 3.3; ///< Voltage level to trigger low 
  */
 class obstacle_avoiding_robot {
 private:
+  robot_position *_rp;
   Adafruit_MotorShield *_afms;     ///< Motor shield object
   Adafruit_DCMotor *_right_back;   ///< Right back motor
   Adafruit_DCMotor *_right_front;  ///< Right front motor
@@ -64,6 +67,7 @@ public:
    */
   obstacle_avoiding_robot() {
     _afms = new Adafruit_MotorShield();
+    _rp = new robot_position();
     _right_back = _afms->getMotor(1);
     _right_front = _afms->getMotor(2);
     _left_front = _afms->getMotor(3);
@@ -72,6 +76,7 @@ public:
 
   ~obstacle_avoiding_robot() {
     delete _afms;
+    delete _rp;
   }
 
   /**
@@ -96,17 +101,41 @@ public:
     pinMode(_trig, OUTPUT);  // Set trigger pin as output
     pinMode(_echo, INPUT);   // Set echo pin as input
   }
+  
+  /**
+  * Function to check if the battery is low and if so, return the robot to its start position.
+  * It puts the robot in sleep mode if the battery is low after starting the return process.
+  *
+  * @return true if the robot successfully starts returning to the start position, false otherwise.
+  */
+  bool go_to_start_position() {
+    // Check if the battery is low
+    bool battery_is_low = battery_calculate();
 
+    if (battery_is_low) {
+      // If the battery is low, return to the start position
+      return_to_start();
+
+      // Put the system to sleep for 8 seconds to conserve power
+      LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);  // Sleep for 8 seconds to save power
+      return true;
+    }
+
+    // Return false if the battery is not low
+    return false;
+  }
   /**
    * Main loop to control robot's movement.
    * The robot moves forward if no obstacle is detected. 
    * If an obstacle is detected, it stops and checks the direction to avoid the obstacle.
    */
   void loop() {
+
+    if (go_to_start_position()) return;
+
     _servo_look.write(90);  // Look straight ahead
     delay(750);             // Wait before measuring distance
 
-    battery_calculate();
 
     int distance = get_distance();  // Get the current distance from the obstacle
 
@@ -117,6 +146,7 @@ public:
 
     // Keep checking until the distance is less than _stop_dist
     while (distance >= _stop_dist) {
+      if (go_to_start_position()) return;
       delay(250);  // Wait before re-checking distance
       distance = get_distance();
     }
@@ -143,7 +173,7 @@ private:
   * - Converts it to actual voltage using the voltage divider formula.
   * - Prints a low battery warning if voltage is below the threshold.
   */
-  void battery_calculate() {
+  bool battery_calculate() {
     int raw_value = analogRead(_battery_pin);  // Read raw ADC value from battery pin
 
     // Convert raw ADC value to actual voltage using the voltage divider formula
@@ -151,15 +181,50 @@ private:
 
     if (voltage < _low_battery_threshold) {
       Serial.println("Low Battery! Charge now.");  // Warning message
-    } else {
-      Serial.print("Battery Voltage: ");
-      Serial.println(voltage);  // Print the battery voltage
+      return true;
     }
+    Serial.print("Battery Voltage: ");
+    Serial.println(voltage);  // Print the battery voltage
+    return false;
+  }
+
+  /**
+  * Function to drive the robot back to the start position.
+  * The robot will move step-by-step, adjusting its position along the X and Y axes.
+  * It will stop when the robot reaches its starting point (within a defined threshold).
+  */
+  void return_to_start() {
+    // Calculate the distance to the start position
+    float distance_to_start = _rp->calculate_distance_to_start();
+
+    // Loop until the robot reaches the start position
+    while (distance_to_start > 1.0) {  // Threshold set to 1.0 to avoid floating-point errors
+      // Adjust movement based on the robot's current position relative to the starting point
+      if (_rp->get_x_position() > 0) {
+        turn_left(400);  // Move left if the robot is too far to the right
+      } else if (_rp->get_x_position() < 0) {
+        turn_right(400);  // Move right if the robot is too far to the left
+      } else if (_rp->get_y_position() > 0) {
+        move_backward();  // Move backward if the robot is too far down
+      } else if (_rp->get_y_position() < 0) {
+        move_forward();  // Move forward if the robot is too far up
+      }
+
+      // Recalculate the distance to the start after each movement
+      distance_to_start = _rp->calculate_distance_to_start();
+
+      // Delay to allow for smoother movement
+      delay(1000);
+    }
+
+    // Stop the robot once it reaches the start position
+    stop_move();
   }
   /**
    * Moves the robot forward by running all motors in the forward direction.
    */
   void move_forward() {
+    _rp->move_forward();
     accelerate();  // Smooth acceleration when moving forward
     _right_back->run(FORWARD);
     _right_front->run(FORWARD);
@@ -167,6 +232,14 @@ private:
     _left_back->run(FORWARD);
   }
 
+  // Function to move robot backward
+  void move_backward() {
+    _rp->move_backward();
+    _right_back->run(BACKWARD);
+    _right_front->run(BACKWARD);
+    _left_front->run(BACKWARD);
+    _left_back->run(BACKWARD);
+  }
   /**
    * Stops the robot by releasing all motors.
    */
@@ -183,6 +256,7 @@ private:
    * @param duration The duration to turn left.
    */
   void turn_left(int duration) {
+    _rp->move_left();
     set_turn_speed(_turn_speed);
     _right_back->run(FORWARD);
     _right_front->run(FORWARD);
@@ -199,6 +273,7 @@ private:
    * @param duration The duration to turn right.
    */
   void turn_right(int duration) {
+    _rp->move_right();
     set_turn_speed(_turn_speed);
     _right_back->run(BACKWARD);
     _right_front->run(BACKWARD);
