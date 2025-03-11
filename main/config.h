@@ -23,43 +23,14 @@
 */
 
 // Rajib chy
-// 12:24 AM 3/8/2025
-// Robot Obstacle Avoidance with Low Power Management (Arduino Uno)
-
-#include "robot.h"
-// #include <Wire.h>
-
-// Create an instance of the robot
-static advanced_robot robot;
-
-void setup() {
-  robot.begin();
-}
-
-void loop() {
-  robot.loop();
-}
+// 11:26 PM 3/10/2025
 
 
-// void setup() {
-//   Serial.begin(115200);
-//   while (!Serial);
-//   Serial.println("\nI2C Scanner");
+#ifndef _robot_config_h_
+#define _robot_config_h_
 
-//   Wire.begin();
-// }
+// #define USE_BATTERY_STATUS
+// #define DEBUG_MODE  // Comment this out to disable debug mode
+// #define USE_ADAFRUIT_V2
 
-// void loop() {
-//   Serial.println("Scanning...");
-
-//   for (byte address = 1; address < 127; address++) {
-//     Wire.beginTransmission(address);
-//     if (Wire.endTransmission() == 0) {
-//       Serial.print("I2C device found at 0x");
-//       Serial.println(address, HEX);
-//       delay(500);
-//     }
-//   }
-//   Serial.println("Done");
-//   delay(5000);
-// }
+#endif //!_robot_config_h_

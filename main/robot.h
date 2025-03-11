@@ -30,8 +30,14 @@
 #define _robot_main_h_
 
 // Robot Obstacle Avoidance with Low Power Management (Arduino Uno)
+#include "config.h"
 
+#ifdef USE_ADAFRUIT_V2
 #include <Adafruit_MotorShield.h>
+#else
+#include <AFMotor.h>
+#endif //!USE_ADAFRUIT_V1
+
 #include <Servo.h>
 #include "robot-position.h"
 
@@ -41,12 +47,21 @@
  */
 class advanced_robot {
 private:
+  bool _is_first_time = true;
+  bool _is_moving_forward = false;
   robot_position *_rp;
+#ifdef USE_ADAFRUIT_V2
   Adafruit_MotorShield *_afms;     ///< Motor shield object
   Adafruit_DCMotor *_right_back;   ///< Right back motor
   Adafruit_DCMotor *_right_front;  ///< Right front motor
   Adafruit_DCMotor *_left_front;   ///< Left front motor
   Adafruit_DCMotor *_left_back;    ///< Left back motor
+#else
+  AF_DCMotor *_right_back;   ///< Right back motor
+  AF_DCMotor *_right_front;  ///< Right front motor
+  AF_DCMotor *_left_front;   ///< Left front motor
+  AF_DCMotor *_left_back;    ///< Left back motor
+#endif //!USE_ADAFRUIT_V2
   Servo *_servo_look;              ///< Servo to control the looking direction
 
 public:
@@ -372,7 +387,7 @@ private:
   *       sides of the robot, and there are delays to ensure the servo has enough 
   *       time to move to the correct positions.
   */
-  uint8_t check_direction();
+  uint8_t check_direction(int straight_distance = 0);
 
   /**
   * @brief Determines the robot's movement direction based on detected distances.
