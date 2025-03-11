@@ -30,7 +30,7 @@
 #define _robot_config_h_
 
 // #define USE_BATTERY_STATUS
-// #define DEBUG_MODE  // Comment this out to disable debug mode
+#define DEBUG_MODE  // Comment this out to disable debug mode
 // #define USE_ADAFRUIT_V2
 
 #endif //!_robot_config_h_

@@ -39,6 +39,7 @@
 #endif //!USE_ADAFRUIT_V1
 
 #include <Servo.h>
+#include "sensor.h"
 #include "robot-position.h"
 
 
@@ -62,7 +63,7 @@ private:
   AF_DCMotor *_left_front;   ///< Left front motor
   AF_DCMotor *_left_back;    ///< Left back motor
 #endif //!USE_ADAFRUIT_V2
-  Servo *_servo_look;              ///< Servo to control the looking direction
+  sensor_t *_sensor;              ///< Servo sensor to control the looking direction
 
 public:
   /**
@@ -326,32 +327,6 @@ private:
   void decelerate();
 
   /**
-  * @brief Measures the distance to the nearest object using an ultrasonic sensor.
-  * 
-  * This function sends an ultrasonic pulse through the sensor and measures the time 
-  * it takes for the pulse to return after bouncing off an object. The function uses 
-  * the `pulseIn` method to calculate the pulse duration from the echo pin, which 
-  * represents the time for the pulse to travel to the object and back.
-  * 
-  * The distance is then calculated using the formula:
-  * 
-  * \[ \text{Distance} = \frac{\text{pulse\_time} \times \text{speed\_of\_sound}}{2} \]
-  * 
-  * where the speed of sound is 340 m/s, and the division by 2 accounts for the round 
-  * trip of the pulse (to the object and back). The result is converted to centimeters 
-  * by dividing by 10000.
-  * 
-  * @return int The distance to the nearest object in centimeters.
-  * 
-  * @note This function assumes the ultrasonic sensor is properly connected with 
-  *       the trigger pin (`_trig`) and echo pin (`_echo`), and that the sensor's 
-  *       timeout value (`_time_out`) is appropriately configured.
-  * 
-  * @see pulseIn() for how the pulse width is measured.
-  */
-  int get_distance();
-
-  /**
   * @brief Measures and describes distances in three directions: straight, right, and left.
   * 
   * This function reads the distance in front, then moves a servo to check the distances 
@@ -382,7 +357,7 @@ private:
   *                  - ROBOT_TURN_RIGHT for right.
   * 
   * @note The function relies on distance measurements to make the decision, 
-  *       so it’s essential that the `get_distance()` function provides accurate 
+  *       so it’s essential that the `_sensor->get_distance()` function provides accurate 
   *       readings. The servo’s position is adjusted to check the left and right 
   *       sides of the robot, and there are delays to ensure the servo has enough 
   *       time to move to the correct positions.

@@ -27,11 +27,8 @@
 #include "robot.h"
 #include <LowPower.h>
 
-
-constexpr uint8_t _trig = A0;                                            ///< Trigger pin for ultrasonic sensor
-constexpr uint8_t _echo = A1;                                            ///< Echo pin for ultrasonic sensor
-constexpr uint8_t _max_dist = 150;                                       ///< Maximum distance (cm) for obstacle detection
-constexpr uint8_t _stop_dist = 50;                                       ///< Minimum distance (cm) to stop before an obstacle
+constexpr uint8_t _max_dist = 120;                                       ///< Maximum distance (cm) for obstacle detection
+constexpr uint8_t _stop_dist = 40;                                       ///< Minimum distance (cm) to stop before an obstacle
 constexpr float _time_out = 2 * (_max_dist + 10) / 100 / 340 * 1000000;  ///< Timeout for ultrasonic sensor measurement
 
 constexpr uint8_t _motor_speed = 165;  ///< Motor speed (0 to 255)
@@ -67,7 +64,7 @@ advanced_robot::advanced_robot() {
 #endif  //!USE_ADAFRUIT_V2
 
   _rp = new robot_position();
-  _servo_look = new Servo();
+  _sensor = new sensor_t(A0, A1, _time_out);
 }
 
 advanced_robot::~advanced_robot() {
@@ -80,7 +77,7 @@ advanced_robot::~advanced_robot() {
   delete _left_front;
   delete _left_back;
 #endif  //!USE_ADAFRUIT_V2
-  delete _servo_look;
+  delete _sensor;
 }
 
 void advanced_robot::begin() {
@@ -104,9 +101,7 @@ void advanced_robot::begin() {
   // Ensure motors are stopped
   stop_move();
 
-  _servo_look->attach(10);  // Attach servo to pin 10
-  pinMode(_trig, OUTPUT);   // Set trigger pin as output
-  pinMode(_echo, INPUT);    // Set echo pin as input
+  _sensor->attach(10);  // Attach servo to pin 10
 }
 
 bool advanced_robot::go_to_start_position() {
@@ -132,14 +127,14 @@ void advanced_robot::loop() {
 
   if (_is_first_time) {
     _is_first_time = false;
-    _servo_look->write(90);  // Look straight ahead
-    delay(600);              // Wait before measuring distance
+    _sensor->look_fornt();  // Look straight ahead
+    delay(600);             // Wait before measuring distance
   } else {
     delay(200);  // Wait before measuring distance
   }
 
 
-  int distance = get_distance();  // Get the current distance from the obstacle
+  int distance = _sensor->get_distance();  // Get the current distance from the obstacle
 
   // Move forward if no obstacle is too close
   if (distance >= _stop_dist) {
@@ -157,29 +152,35 @@ void advanced_robot::loop() {
 
     delay(10);  // Wait before re-checking distance
 
-    distance = get_distance();
+    distance = _sensor->get_distance();
   }
+
+  int duration_offset = 0;
 
   if (_is_moving_forward) {
 
-    if (distance <= 10) {
+    if (distance <= 20) {
       // close to obstacle
       stop_move();
       move_backward(800);
+      duration_offset = -150;
     } else {
       stop_move();
       move_backward(10);
+      duration_offset = -100;
       _is_moving_forward = false;
     }
   }
 
   uint8_t turn_dir = check_direction(distance);  // Check left and right for the best direction to turn
 
+  Serial.print("turn_dir > ");
+  Serial.println(turn_dir);
   // Turn based on the best direction
   switch (turn_dir) {
-    case ROBOT_TURN_LEFT: turn_left(600); break;
-    case ROBOT_GO_BACK: move_backward(700); break;
-    case ROBOT_TURN_RIGHT: turn_right(600); break;
+    case ROBOT_TURN_LEFT: turn_left(600 + duration_offset); break;
+    case ROBOT_GO_BACK: move_backward(700 + duration_offset); break;
+    case ROBOT_TURN_RIGHT: turn_right(600 + duration_offset); break;
     case ROBOT_MOVE: move_forward(); break;
   }
 }
@@ -356,40 +357,24 @@ void advanced_robot::decelerate() {
   }
 }
 
-int advanced_robot::get_distance() {
-  unsigned long pulse_time;  // Variable to store the time it takes for the ultrasonic pulse to return
-
-  // Trigger the ultrasonic sensor to send a pulse
-  digitalWrite(_trig, HIGH);  // Set trigger pin high to start sending the pulse
-  delayMicroseconds(10);      // Wait for 10 microseconds to ensure the pulse is sent properly
-  digitalWrite(_trig, LOW);   // Set trigger pin low to stop sending the pulse
-
-  // Measure the time it takes for the echo pin to go high (i.e., the time for the pulse to return)
-  pulse_time = pulseIn(_echo, HIGH, _time_out);  // Read the pulse width from the echo pin
-
-  // Calculate and return the distance based on the pulse time
-  return pulse_time * 340 / 2 / 10000;  // Distance in cm (speed of sound is 340 m/s, divide by 2 for round trip, and by 10000 to convert to cm)
-}
-
 void advanced_robot::describe_distance(int &straight, int &right, int &left) {
 
   // Look to the right and measure distance
-  _servo_look->write(180);
-  delay(300);
-  right = get_distance();
+  right = _sensor->get_right_distance(700);
 
   // Look to the left and measure distance
-  _servo_look->write(0);
-  delay(600);
-  left = get_distance();
+  left = _sensor->get_left_distance(600);
 
   // Reset servo position to the center (optional for better responsiveness)
-  _servo_look->write(90);
+  _sensor->look_fornt();
+
+  Serial.print("Straight ");
+  Serial.println(straight);
 
   if (straight == 0) {
     delay(400);
 
-    straight = get_distance();  // Measure forward distance
+    straight = _sensor->get_distance();  // Measure forward distance
   }
 }
 
@@ -406,7 +391,7 @@ uint8_t advanced_robot::check_direction(int straight_distance) {
 uint8_t advanced_robot::calculate_direction(const int &straight, const int &right, const int &left) const {
 
   // Move forward if there is enough space ahead
-  if (straight >= _stop_dist) {
+  if (straight > _stop_dist) {
     return ROBOT_MOVE;
   }
 
@@ -417,6 +402,7 @@ uint8_t advanced_robot::calculate_direction(const int &straight, const int &righ
 
   // If both sides are blocked, reverse
   if (right <= _stop_dist && left <= _stop_dist) {
+    Serial.println("Go Back");
     return ROBOT_GO_BACK;
   }
 
