@@ -190,7 +190,6 @@ void advanced_robot::loop() {
   if (turn_dir == ROBOT_GO_BACK) {
     try_move_left_or_right();
   }
-
 }
 
 void advanced_robot::autonomous_navigation() {
@@ -344,7 +343,7 @@ void advanced_robot::reset_motor_speed() {
 }
 
 void advanced_robot::accelerate() {
-  for (uint8_t speed = 0; speed < _motor_speed; speed += 20) {
+  for (uint8_t speed = 0; speed < _motor_speed; speed += 40) {
     if (speed > _motor_speed) speed = _motor_speed;  // Ensure speed does not exceed limit
     _right_back->setSpeed(speed);                    // Gradually increase speed for right back motor
     _right_front->setSpeed(speed);                   // Gradually increase speed for right front motor
@@ -355,7 +354,7 @@ void advanced_robot::accelerate() {
 }
 
 void advanced_robot::decelerate() {
-  for (int8_t speed = _motor_speed; speed > 0; speed -= 20) {
+  for (int8_t speed = _motor_speed; speed > 0; speed -= 40) {
     if (speed < 0) speed = 0;                      // Ensure speed does not go below 0
     _right_back->setSpeed(speed);                  // Gradually decrease speed for right back motor
     _right_front->setSpeed(speed);                 // Gradually decrease speed for right front motor
@@ -425,7 +424,6 @@ void advanced_robot::try_move_left_or_right() {
       return;
     }
   }
-
 }
 uint8_t advanced_robot::check_direction(int straight_distance) {
 
@@ -444,8 +442,13 @@ uint8_t advanced_robot::calculate_direction(const int &straight, const int &righ
     return ROBOT_MOVE;
   }
 
-  // If both right and left sides have large open space, prefer turning left
+  // If both right and left sides have large open space, prefer turning towards the side with more space
   if (right >= 200 && left >= 200) {
+
+    if (right < left) {
+      return ROBOT_TURN_RIGHT;
+    }
+
     return ROBOT_TURN_LEFT;
   }
 

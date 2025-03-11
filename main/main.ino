@@ -33,6 +33,9 @@
 static advanced_robot robot;
 
 void setup() {
+// #ifndef USE_ADAFRUIT_V2
+//   TCCR1B = (TCCR1B & 0b11111000) | 0x01;  // Set Timer1 to fast PWM (8 kHz)
+// #endif //!USE_ADAFRUIT_V2
   robot.begin();
 }
 
