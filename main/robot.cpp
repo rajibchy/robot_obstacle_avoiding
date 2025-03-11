@@ -28,7 +28,8 @@
 #include <LowPower.h>
 
 constexpr uint8_t _max_dist = 120;                                       ///< Maximum distance (cm) for obstacle detection
-constexpr uint8_t _stop_dist = 40;                                       ///< Minimum distance (cm) to stop before an obstacle
+constexpr uint8_t _stop_dist = 40;                                       ///< Minimum distance (cm) to stop before an obstacle (10 inch)
+constexpr uint8_t _closed_obstacle = 20;
 constexpr float _time_out = 2 * (_max_dist + 10) / 100 / 340 * 1000000;  ///< Timeout for ultrasonic sensor measurement
 
 constexpr uint8_t _motor_speed = 165;  ///< Motor speed (0 to 255)
@@ -130,7 +131,11 @@ void advanced_robot::loop() {
     _sensor->look_fornt();  // Look straight ahead
     delay(600);             // Wait before measuring distance
   } else {
-    delay(200);  // Wait before measuring distance
+    if (!_is_moving_forward) {
+      delay(500);  // Wait before measuring distance
+    } else {
+      delay(200);  // Wait before measuring distance
+    }
   }
 
 
@@ -163,7 +168,7 @@ void advanced_robot::loop() {
 
   if (_is_moving_forward) {
 
-    if (distance <= 20) {
+    if (distance <= _closed_obstacle) {
       // close to obstacle
       stop_move();
       move_backward(800);
@@ -173,6 +178,7 @@ void advanced_robot::loop() {
 
     stop_move();
     move_backward(10);
+    delay(400);
     duration_offset = -100;
     _is_moving_forward = false;
   }
@@ -370,7 +376,7 @@ void advanced_robot::describe_distance(int &straight, int &right, int &left) {
   right = _sensor->get_right_distance(700);
 
   // Look to the left and measure distance
-  left = _sensor->get_left_distance(600);
+  left = _sensor->get_left_distance(800);
 
   // Reset servo position to the center (optional for better responsiveness)
   _sensor->look_fornt();
@@ -388,7 +394,7 @@ void advanced_robot::try_move_left_or_right() {
     int right = _sensor->get_right_distance(700);
 
     // Look to the left and measure distance
-    int left = _sensor->get_left_distance(600);
+    int left = _sensor->get_left_distance(800);
 
     // If both sides are blocked, reverse
     if (right <= _stop_dist && left <= _stop_dist) {
@@ -398,7 +404,7 @@ void advanced_robot::try_move_left_or_right() {
 
     int8_t move_left = 0;
     // If both right and left sides have large open space, prefer turning left
-    if (right >= 200 && left >= 200 || right >= left) {
+    if (right >= _max_dist && left >= _max_dist || right >= left) {
       turn_left(400);
       move_left = 1;
     } else {
@@ -406,6 +412,7 @@ void advanced_robot::try_move_left_or_right() {
     }
 
     while (true) {
+
       int straight = _sensor->get_fornt_distance(600);
 
       if (straight <= _stop_dist) {
@@ -443,7 +450,7 @@ uint8_t advanced_robot::calculate_direction(const int &straight, const int &righ
   }
 
   // If both right and left sides have large open space, prefer turning towards the side with more space
-  if (right >= 200 && left >= 200) {
+  if (right >= _max_dist && left >= _max_dist) {
 
     if (right < left) {
       return ROBOT_TURN_RIGHT;

@@ -34,7 +34,7 @@ sensor_t::sensor_t(const uint8_t& trigger, const uint8_t& echo, const float& tim
   _servo_look = new Servo();
 
   pinMode(_trigger, OUTPUT);  // Set trigger pin as output
-  pinMode(_echo, INPUT);   // Set echo pin as input
+  pinMode(_echo, INPUT);      // Set echo pin as input
 }
 void sensor_t::attach(int pin) {
   _servo_look->attach(pin);
@@ -57,6 +57,13 @@ int sensor_t::get_distance() {
   // Calculate and return the distance based on the pulse time
   return pulse_time * 340 / 2 / 10000;  // Distance in cm (speed of sound is 340 m/s, divide by 2 for round trip, and by 10000 to convert to cm)
 }
+
+int sensor_t::get_target_distance(int servo_position, unsigned long ms) {
+  _servo_look->write(servo_position);
+  delay(ms);
+  return get_distance();
+}
+
 int sensor_t::get_fornt_distance(unsigned long ms) {
   look_fornt();
   delay(ms);

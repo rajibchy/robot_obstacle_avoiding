@@ -79,6 +79,7 @@ public:
    * @return int The measured distance in centimeters.
    */
   int get_distance();
+  int get_target_distance(int servo_position, unsigned long ms);
 
   /**
    * @brief Measures the front distance after adjusting the sensor.
