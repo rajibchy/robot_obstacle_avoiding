@@ -326,6 +326,8 @@ private:
   */
   void decelerate();
 
+  void try_move_left_or_right();
+
   /**
   * @brief Measures and describes distances in three directions: straight, right, and left.
   * 

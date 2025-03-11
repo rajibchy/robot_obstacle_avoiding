@@ -150,6 +150,10 @@ void advanced_robot::loop() {
 
     if (go_to_start_position()) return;
 
+    if (!_is_moving_forward) {
+      move_forward();
+    }
+
     delay(10);  // Wait before re-checking distance
 
     distance = _sensor->get_distance();
@@ -163,19 +167,18 @@ void advanced_robot::loop() {
       // close to obstacle
       stop_move();
       move_backward(800);
-      duration_offset = -150;
-    } else {
-      stop_move();
-      move_backward(10);
-      duration_offset = -100;
-      _is_moving_forward = false;
+      try_move_left_or_right();
+      return;
     }
+
+    stop_move();
+    move_backward(10);
+    duration_offset = -100;
+    _is_moving_forward = false;
   }
 
   uint8_t turn_dir = check_direction(distance);  // Check left and right for the best direction to turn
 
-  Serial.print("turn_dir > ");
-  Serial.println(turn_dir);
   // Turn based on the best direction
   switch (turn_dir) {
     case ROBOT_TURN_LEFT: turn_left(600 + duration_offset); break;
@@ -183,6 +186,11 @@ void advanced_robot::loop() {
     case ROBOT_TURN_RIGHT: turn_right(600 + duration_offset); break;
     case ROBOT_MOVE: move_forward(); break;
   }
+
+  if (turn_dir == ROBOT_GO_BACK) {
+    try_move_left_or_right();
+  }
+
 }
 
 void advanced_robot::autonomous_navigation() {
@@ -272,9 +280,9 @@ void advanced_robot::move_forward() {
   _is_moving_forward = true;
   accelerate();  // Smooth acceleration when moving forward
   _right_back->run(FORWARD);
-  _right_front->run(FORWARD);
-  _left_front->run(FORWARD);
   _left_back->run(FORWARD);
+  _left_front->run(FORWARD);
+  _right_front->run(FORWARD);
 }
 
 void advanced_robot::move_backward(int duration) {
@@ -336,7 +344,7 @@ void advanced_robot::reset_motor_speed() {
 }
 
 void advanced_robot::accelerate() {
-  for (uint8_t speed = 0; speed <= _motor_speed; speed += 20) {
+  for (uint8_t speed = 0; speed < _motor_speed; speed += 20) {
     if (speed > _motor_speed) speed = _motor_speed;  // Ensure speed does not exceed limit
     _right_back->setSpeed(speed);                    // Gradually increase speed for right back motor
     _right_front->setSpeed(speed);                   // Gradually increase speed for right front motor
@@ -347,7 +355,7 @@ void advanced_robot::accelerate() {
 }
 
 void advanced_robot::decelerate() {
-  for (int8_t speed = _motor_speed; speed >= 0; speed -= 20) {
+  for (int8_t speed = _motor_speed; speed > 0; speed -= 20) {
     if (speed < 0) speed = 0;                      // Ensure speed does not go below 0
     _right_back->setSpeed(speed);                  // Gradually decrease speed for right back motor
     _right_front->setSpeed(speed);                 // Gradually decrease speed for right front motor
@@ -368,16 +376,57 @@ void advanced_robot::describe_distance(int &straight, int &right, int &left) {
   // Reset servo position to the center (optional for better responsiveness)
   _sensor->look_fornt();
 
-  Serial.print("Straight ");
-  Serial.println(straight);
-
   if (straight == 0) {
     delay(400);
 
     straight = _sensor->get_distance();  // Measure forward distance
   }
 }
+void advanced_robot::try_move_left_or_right() {
 
+  while (true) {
+    // Look to the right and measure distance
+    int right = _sensor->get_right_distance(700);
+
+    // Look to the left and measure distance
+    int left = _sensor->get_left_distance(600);
+
+    // If both sides are blocked, reverse
+    if (right <= _stop_dist && left <= _stop_dist) {
+      move_backward(500);
+      continue;
+    }
+
+    int8_t move_left = 0;
+    // If both right and left sides have large open space, prefer turning left
+    if (right >= 200 && left >= 200 || right >= left) {
+      turn_left(400);
+      move_left = 1;
+    } else {
+      turn_right(400);
+    }
+
+    while (true) {
+      int straight = _sensor->get_fornt_distance(600);
+
+      if (straight <= _stop_dist) {
+        if (move_left < 0) {
+          move_backward(500);
+          break;
+        }
+        if (move_left == 1) {
+          turn_left(100);
+        } else {
+          turn_right(100);
+        }
+        move_left = -1;
+        continue;
+      }
+      return;
+    }
+  }
+
+}
 uint8_t advanced_robot::check_direction(int straight_distance) {
 
   int right, left;
@@ -402,7 +451,6 @@ uint8_t advanced_robot::calculate_direction(const int &straight, const int &righ
 
   // If both sides are blocked, reverse
   if (right <= _stop_dist && left <= _stop_dist) {
-    Serial.println("Go Back");
     return ROBOT_GO_BACK;
   }
 
