@@ -29,6 +29,16 @@
 #ifndef _robot_config_h_
 #define _robot_config_h_
 
+#include <Arduino.h>
+
+#ifndef min
+#define min(a,b) ((a)<(b)?(a):(b))
+#endif
+
+#ifndef max
+#define max(a,b) ((a)>(b)?(a):(b))
+#endif 
+// #define USE_ONE_WHEEL_TURN
 // #define USE_BATTERY_STATUS
 // #define DEBUG_MODE  // Comment this out to disable debug mode
 // #define USE_ADAFRUIT_V2

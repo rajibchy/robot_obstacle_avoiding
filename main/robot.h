@@ -34,9 +34,10 @@
 
 #ifdef USE_ADAFRUIT_V2
 #include <Adafruit_MotorShield.h>
+// https://www.adafruit.com/product/1438
 #else
 #include <AFMotor.h>
-#endif //!USE_ADAFRUIT_V1
+#endif  //!USE_ADAFRUIT_V1
 
 #include <Servo.h>
 #include "sensor.h"
@@ -62,8 +63,8 @@ private:
   AF_DCMotor *_right_front;  ///< Right front motor
   AF_DCMotor *_left_front;   ///< Left front motor
   AF_DCMotor *_left_back;    ///< Left back motor
-#endif //!USE_ADAFRUIT_V2
-  sensor_t *_sensor;              ///< Servo sensor to control the looking direction
+#endif                //!USE_ADAFRUIT_V2
+  sensor_t *_sensor;  ///< Servo sensor to control the looking direction
 
 public:
   /**
@@ -296,7 +297,7 @@ private:
   * @note The left motors are also offset by `_motor_offset` to ensure that turning 
   *       is smooth and effective.
   */
-  void set_turn_speed(uint8_t speed);
+  void set_turn_speed(uint8_t speed, uint8_t turn_type);
 
   /**
   * @brief Resets motor speed to the default speed.

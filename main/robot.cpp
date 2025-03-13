@@ -27,8 +27,8 @@
 #include "robot.h"
 #include <LowPower.h>
 
-constexpr uint8_t _max_dist = 120;                                       ///< Maximum distance (cm) for obstacle detection
-constexpr uint8_t _stop_dist = 40;                                       ///< Minimum distance (cm) to stop before an obstacle (10 inch)
+constexpr uint8_t _max_dist = 120;  ///< Maximum distance (cm) for obstacle detection
+constexpr uint8_t _stop_dist = 40;  ///< Minimum distance (cm) to stop before an obstacle (10 inch)
 constexpr uint8_t _closed_obstacle = 20;
 constexpr float _time_out = 2 * (_max_dist + 10) / 100 / 340 * 1000000;  ///< Timeout for ultrasonic sensor measurement
 
@@ -58,10 +58,10 @@ advanced_robot::advanced_robot() {
   _left_back = _afms->getMotor(3);
   _right_back = _afms->getMotor(4);
 #else
-  _right_front = new AF_DCMotor(1, MOTOR12_1KHZ);
-  _left_front = new AF_DCMotor(2, MOTOR12_1KHZ);
-  _left_back = new AF_DCMotor(3, MOTOR34_1KHZ);
-  _right_back = new AF_DCMotor(4, MOTOR34_1KHZ);
+  _right_front = new AF_DCMotor(1, MOTOR12_8KHZ);
+  _left_front = new AF_DCMotor(2, MOTOR12_8KHZ);
+  _left_back = new AF_DCMotor(3, MOTOR34_8KHZ);
+  _right_back = new AF_DCMotor(4, MOTOR34_8KHZ);
 #endif  //!USE_ADAFRUIT_V2
 
   _rp = new robot_position();
@@ -69,6 +69,7 @@ advanced_robot::advanced_robot() {
 }
 
 advanced_robot::~advanced_robot() {
+
 #ifdef USE_ADAFRUIT_V2
   delete _afms;
   delete _rp;
@@ -78,6 +79,7 @@ advanced_robot::~advanced_robot() {
   delete _left_front;
   delete _left_back;
 #endif  //!USE_ADAFRUIT_V2
+
   delete _sensor;
 }
 
@@ -96,8 +98,8 @@ void advanced_robot::begin() {
   // Set motor speeds
   _right_back->setSpeed(_motor_speed);
   _right_front->setSpeed(_motor_speed);
-  _left_front->setSpeed(_motor_speed + _motor_offset);
-  _left_back->setSpeed(_motor_speed + _motor_offset);
+  _left_front->setSpeed(_motor_speed);
+  _left_back->setSpeed(_motor_speed);
 
   // Ensure motors are stopped
   stop_move();
@@ -283,11 +285,11 @@ void advanced_robot::return_to_start() {
 void advanced_robot::move_forward() {
   _rp->move_forward();
   _is_moving_forward = true;
-  accelerate();  // Smooth acceleration when moving forward
   _right_back->run(FORWARD);
   _left_back->run(FORWARD);
   _left_front->run(FORWARD);
   _right_front->run(FORWARD);
+  accelerate();  // Smooth acceleration when moving forward
 }
 
 void advanced_robot::move_backward(int duration) {
@@ -296,12 +298,13 @@ void advanced_robot::move_backward(int duration) {
   _right_front->run(BACKWARD);  // Move the right front motor in the backward direction
   _left_front->run(BACKWARD);   // Move the left front motor in the backward direction
   _left_back->run(BACKWARD);    // Move the left back motor in the backward direction
-  delay(duration);              // Move for the specified duration (in milliseconds)
-  reset_motor_speed();          // Reset the motor speed after movement
-  stop_move();                  // Stop the motors to halt the movement
+  accelerate();
+  delay(duration);  // Move for the specified duration (in milliseconds)
+  stop_move();      // Stop the motors to halt the movement
 }
 
 void advanced_robot::stop_move() {
+  reset_motor_speed();         // Reset the motor speed after movement
   _right_back->run(RELEASE);   // Release the right back motor
   _right_front->run(RELEASE);  // Release the right front motor
   _left_front->run(RELEASE);   // Release the left front motor
@@ -310,64 +313,143 @@ void advanced_robot::stop_move() {
 
 void advanced_robot::turn_left(int duration) {
   _rp->move_left();
-  set_turn_speed(_turn_speed);  // Set the turning speed based on _turn_speed
-  _right_front->run(FORWARD);   // Move the right front motor forward
-  _right_back->run(FORWARD);    // Move the right back motor forward
+  _right_front->run(FORWARD);  // Move the right front motor forward
+  _right_back->run(FORWARD);   // Move the right back motor forward
 
+#ifndef USE_ONE_WHEEL_TURN
   _left_front->run(BACKWARD);  // Move the left front motor backward
   _left_back->run(BACKWARD);   // Move the left back motor backward
-  delay(duration);             // Turn for the specified duration (in milliseconds)
-  reset_motor_speed();         // Reset the motor speed after the turn
-  stop_move();                 // Stop the motors to halt the turn
+#endif
+  set_turn_speed(_turn_speed, ROBOT_TURN_LEFT);  // Set the turning speed based on _turn_speed
+  delay(duration);                               // Turn for the specified duration (in milliseconds)
+  stop_move();                                   // Stop the motors to halt the turn
 }
 
 void advanced_robot::turn_right(int duration) {
   _rp->move_right();
-  set_turn_speed(_turn_speed);  // Set the turning speed based on _turn_speed
+
+#ifndef USE_ONE_WHEEL_TURN
   _right_front->run(BACKWARD);  // Move the right front motor backward
   _right_back->run(BACKWARD);   // Move the right back motor backward
+#endif
 
-  _left_front->run(FORWARD);  // Move the left front motor forward
-  _left_back->run(FORWARD);   // Move the left back motor forward
-  delay(duration);            // Turn for the specified duration (in milliseconds)
-  reset_motor_speed();        // Reset the motor speed after the turn
-  stop_move();                // Stop the motors to halt the turn
+  _left_front->run(FORWARD);                      // Move the left front motor forward
+  _left_back->run(FORWARD);                       // Move the left back motor forward
+  set_turn_speed(_turn_speed, ROBOT_TURN_RIGHT);  // Set the turning speed based on _turn_speed
+  delay(duration);                                // Turn for the specified duration (in milliseconds)
+  stop_move();                                    // Stop the motors to halt the turn
 }
 
-void advanced_robot::set_turn_speed(uint8_t speed) {
-  _right_back->setSpeed(_motor_speed + speed);                  // Set speed for right back motor
-  _right_front->setSpeed(_motor_speed + speed);                 // Set speed for right front motor
-  _left_front->setSpeed(_motor_speed + _motor_offset + speed);  // Set speed for left front motor with offset
-  _left_back->setSpeed(_motor_speed + _motor_offset + speed);   // Set speed for left back motor with offset
+void advanced_robot::set_turn_speed(uint8_t turn_speed, uint8_t turn_type) {
+  uint8_t speed = 0;
+  uint8_t step = 20;         // Incremental step for smoother acceleration
+  uint16_t delay_time = 20;  // Milliseconds per step
+#ifdef USE_ONE_WHEEL_TURN
+
+  uint8_t target_speed = _motor_speed + turn_speed;
+
+  while (speed < target_speed) {
+
+    speed = min(speed + step, target_speed);
+
+    if (turn_type == ROBOT_TURN_RIGHT) {
+
+      _left_front->setSpeed(speed);
+      _left_back->setSpeed(speed);
+
+    } else {
+
+      _right_front->setSpeed(speed);
+      _right_back->setSpeed(speed);
+    }
+
+    delay(delay_time);
+  }
+
+#else
+
+  while (speed < _motor_speed) {
+
+    speed = min(speed + step, _motor_speed);
+
+    if (turn_type == ROBOT_TURN_RIGHT) {
+
+      _left_front->setSpeed(speed + turn_speed);  // Set speed for left front motor with offset
+      _left_back->setSpeed(speed + turn_speed);   // Set speed for left back motor with offset
+      _right_front->setSpeed(speed);              // Set speed for right front motor
+      _right_back->setSpeed(speed);               // Set speed for right back motor
+
+    } else {
+
+      _right_front->setSpeed(speed + turn_speed);  // Set speed for right front motor
+      _right_back->setSpeed(speed + turn_speed);   // Set speed for right back motor
+      _left_front->setSpeed(speed);                // Set speed for left front motor with offset
+      _left_back->setSpeed(speed);                 // Set speed for left back motor with offset
+    }
+
+    delay(delay_time);
+  }
+
+#endif  //!USE_ONE_WHEEL_TURN
 }
 
 void advanced_robot::reset_motor_speed() {
-  _right_back->setSpeed(_motor_speed);                  // Reset speed for right back motor
-  _right_front->setSpeed(_motor_speed);                 // Reset speed for right front motor
-  _left_front->setSpeed(_motor_speed + _motor_offset);  // Reset speed for left front motor with offset
-  _left_back->setSpeed(_motor_speed + _motor_offset);   // Reset speed for left back motor with offset
+  // _right_back->setSpeed(_motor_speed);   // Reset speed for right back motor
+  // _right_front->setSpeed(_motor_speed);  // Reset speed for right front motor
+  // _left_front->setSpeed(_motor_speed);   // Reset speed for left front motor with offset
+  // _left_back->setSpeed(_motor_speed);    // Reset speed for left back motor with offset
+  // Ensure all motors fully stop
+  _right_back->setSpeed(0);
+  _right_front->setSpeed(0);
+  _left_front->setSpeed(0);
+  _left_back->setSpeed(0);
 }
 
 void advanced_robot::accelerate() {
-  for (uint8_t speed = 0; speed < _motor_speed; speed += 40) {
-    if (speed > _motor_speed) speed = _motor_speed;  // Ensure speed does not exceed limit
-    _right_back->setSpeed(speed);                    // Gradually increase speed for right back motor
-    _right_front->setSpeed(speed);                   // Gradually increase speed for right front motor
-    _left_front->setSpeed(speed + _motor_offset);    // Gradually increase speed for left front motor with offset
-    _left_back->setSpeed(speed + _motor_offset);     // Gradually increase speed for left back motor with offset
-    delay(20);                                       // Delay for smoother transition
+
+  uint8_t speed = 0;
+  uint8_t step = 20;         // Incremental step for smoother acceleration
+  uint16_t delay_time = 20;  // Milliseconds per step
+
+  while (true) {
+
+    if (speed >= _motor_speed) break;
+
+    speed = min(speed + step, _motor_speed);
+
+    _right_back->setSpeed(speed);   // Gradually increase speed for right back motor
+    _right_front->setSpeed(speed);  // Gradually increase speed for right front motor
+    _left_front->setSpeed(speed);   // Gradually increase speed for left front motor with offset
+    _left_back->setSpeed(speed);    // Gradually increase speed for left back motor with offset
+    delay(delay_time);              // Delay for smoother transition
+
   }
+
 }
 
 void advanced_robot::decelerate() {
-  for (int8_t speed = _motor_speed; speed > 0; speed -= 40) {
-    if (speed < 0) speed = 0;                      // Ensure speed does not go below 0
-    _right_back->setSpeed(speed);                  // Gradually decrease speed for right back motor
-    _right_front->setSpeed(speed);                 // Gradually decrease speed for right front motor
-    _left_front->setSpeed(speed + _motor_offset);  // Gradually decrease speed for left front motor with offset
-    _left_back->setSpeed(speed + _motor_offset);   // Gradually decrease speed for left back motor with offset
-    delay(20);                                     // Delay for smoother transition
+
+  uint8_t speed = _motor_speed;
+  uint8_t step = 20;         // Incremental step for smooth deceleration
+  uint16_t delay_time = 20;  // Milliseconds per step
+
+  while (speed > 0) {
+
+    speed = max(0, speed - step);  // Prevent underflow
+
+    _right_back->setSpeed(speed);   // Gradually decrease speed for right back motor
+    _right_front->setSpeed(speed);  // Gradually decrease speed for right front motor
+    _left_front->setSpeed(speed);   // Gradually decrease speed for left front motor
+    _left_back->setSpeed(speed);    // Gradually decrease speed for left back motor
+
+    if (speed == 0) return;
+
+    delay(delay_time);  // Delay for smoother transition
+    
   }
+
+  // Ensure all motors fully stop
+  reset_motor_speed();
 }
 
 void advanced_robot::describe_distance(int &straight, int &right, int &left) {
@@ -398,17 +480,27 @@ void advanced_robot::try_move_left_or_right() {
 
     // If both sides are blocked, reverse
     if (right <= _stop_dist && left <= _stop_dist) {
+
+      if (right > _closed_obstacle || left > _closed_obstacle) {
+
+        if (right > left) {
+          turn_right(10);
+        } else {
+          turn_left(10);
+        }
+      }
+
       move_backward(500);
       continue;
     }
 
     int8_t move_left = 0;
     // If both right and left sides have large open space, prefer turning left
-    if (right >= _max_dist && left >= _max_dist || right >= left) {
-      turn_left(400);
-      move_left = 1;
-    } else {
+    if (right > left) {
       turn_right(400);
+    } else {
+      move_left = 1;
+      turn_left(400);
     }
 
     while (true) {
@@ -452,7 +544,7 @@ uint8_t advanced_robot::calculate_direction(const int &straight, const int &righ
   // If both right and left sides have large open space, prefer turning towards the side with more space
   if (right >= _max_dist && left >= _max_dist) {
 
-    if (right < left) {
+    if (right > left) {
       return ROBOT_TURN_RIGHT;
     }
 
