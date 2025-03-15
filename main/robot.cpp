@@ -224,6 +224,7 @@ void advanced_robot::autonomous_navigation() {
 
       case ROBOT_GO_BACK:
         move_backward(700);  // Move backward for 700ms
+        try_move_left_or_right();
         break;
 
       case ROBOT_TURN_RIGHT:
@@ -394,15 +395,11 @@ void advanced_robot::set_turn_speed(uint8_t turn_speed, uint8_t turn_type) {
 }
 
 void advanced_robot::reset_motor_speed() {
-  // _right_back->setSpeed(_motor_speed);   // Reset speed for right back motor
-  // _right_front->setSpeed(_motor_speed);  // Reset speed for right front motor
-  // _left_front->setSpeed(_motor_speed);   // Reset speed for left front motor with offset
-  // _left_back->setSpeed(_motor_speed);    // Reset speed for left back motor with offset
   // Ensure all motors fully stop
-  _right_back->setSpeed(0);
-  _right_front->setSpeed(0);
-  _left_front->setSpeed(0);
-  _left_back->setSpeed(0);
+  _right_back->setSpeed(0);   // Reset speed for right back motor
+  _right_front->setSpeed(0);  // Reset speed for right front motor
+  _left_front->setSpeed(0);   // Reset speed for left front motor with offset
+  _left_back->setSpeed(0);    // Reset speed for left back motor with offset
 }
 
 void advanced_robot::accelerate() {
@@ -422,9 +419,7 @@ void advanced_robot::accelerate() {
     _left_front->setSpeed(speed);   // Gradually increase speed for left front motor with offset
     _left_back->setSpeed(speed);    // Gradually increase speed for left back motor with offset
     delay(delay_time);              // Delay for smoother transition
-
   }
-
 }
 
 void advanced_robot::decelerate() {
@@ -445,7 +440,6 @@ void advanced_robot::decelerate() {
     if (speed == 0) return;
 
     delay(delay_time);  // Delay for smoother transition
-    
   }
 
   // Ensure all motors fully stop

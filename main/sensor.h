@@ -29,7 +29,7 @@
 #ifndef _robot_sensor_h_
 #define _robot_sensor_h_
 
-#include <Servo.h>
+#include "servo-control.h"
 
 /**
  * @class sensor_t
@@ -38,7 +38,7 @@
  * This class provides an interface for an ultrasonic distance sensor, allowing it to measure distances
  * to obstacles and adjust its direction using a servo motor.
  */
-class sensor_t {
+class sensor_t : public servo_ctrl_t{
 public:
   /**
    * @brief Constructs a sensor_t object.
@@ -60,18 +60,11 @@ public:
   ~sensor_t();
 
 private:
-  uint8_t _echo;       ///< Echo pin for ultrasonic sensor.
-  float _time_out;     ///< Timeout for ultrasonic sensor measurement.
-  uint8_t _trigger;    ///< Trigger pin for ultrasonic sensor.
-  Servo* _servo_look;  ///< Servo to control the looking direction.
+  uint8_t _echo;     ///< Echo pin for ultrasonic sensor.
+  float _time_out;   ///< Timeout for ultrasonic sensor measurement.
+  uint8_t _trigger;  ///< Trigger pin for ultrasonic sensor.
 
 public:
-  /**
-   * @brief Attaches the servo to a specified pin.
-   * 
-   * @param pin The GPIO pin where the servo is connected.
-   */
-  void attach(int pin);
 
   /**
    * @brief Measures the distance to the nearest object using an ultrasonic sensor.
@@ -104,21 +97,6 @@ public:
    * @return int The measured distance in centimeters.
    */
   int get_left_distance(unsigned long ms);
-
-  /**
-   * @brief Adjusts the sensor to look forward.
-   */
-  void look_fornt();
-
-  /**
-   * @brief Adjusts the sensor to look right.
-   */
-  void look_right();
-
-  /**
-   * @brief Adjusts the sensor to look left.
-   */
-  void look_left();
 };
 
 #endif  //!_robot_sensor_h_

@@ -1,0 +1,7 @@
+Arduino 5V → Ultrasonic Sensor VCC
+Arduino GND → Ultrasonic Sensor GND
+Arduino Digital Pin 9 → Ultrasonic Sensor Trig
+Arduino Digital Pin 10 → Ultrasonic Sensor Echo
+
+
+https://www.youtube.com/watch?v=Rm_R0MAmHHA (Pan Tilt Control using Servos for ESP32 Cam | WiFi Security Camera)

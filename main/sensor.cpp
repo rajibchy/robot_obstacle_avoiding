@@ -27,21 +27,15 @@
 #include "sensor.h"
 #include <Arduino.h>
 sensor_t::sensor_t(const uint8_t& trigger, const uint8_t& echo, const float& time_out) {
-
   _echo = echo;
   _trigger = trigger;
   _time_out = time_out;
-  _servo_look = new Servo();
 
   pinMode(_trigger, OUTPUT);  // Set trigger pin as output
   pinMode(_echo, INPUT);      // Set echo pin as input
 }
-void sensor_t::attach(int pin) {
-  _servo_look->attach(pin);
-}
-sensor_t::~sensor_t() {
-  delete _servo_look;
-}
+
+sensor_t::~sensor_t() {}
 
 int sensor_t::get_distance() {
   unsigned long pulse_time;  // Variable to store the time it takes for the ultrasonic pulse to return
@@ -55,42 +49,27 @@ int sensor_t::get_distance() {
   pulse_time = pulseIn(_echo, HIGH, _time_out);  // Read the pulse width from the echo pin
 
   // Calculate and return the distance based on the pulse time
-  return pulse_time * 340 / 2 / 10000;  // Distance in cm (speed of sound is 340 m/s, divide by 2 for round trip, and by 10000 to convert to cm)
+  return (((pulse_time * 340) / 2) / 10000);  // Distance in cm (speed of sound is 340 m/s, divide by 2 for round trip, and by 10000 to convert to cm)
 }
 
 int sensor_t::get_target_distance(int servo_position, unsigned long ms) {
-  _servo_look->write(servo_position);
+  write(servo_position);  // servo_ctrl_t
   delay(ms);
   return get_distance();
 }
 
 int sensor_t::get_fornt_distance(unsigned long ms) {
-  look_fornt();
+  look_fornt();  // servo_ctrl_t
   delay(ms);
   return get_distance();
 }
 int sensor_t::get_right_distance(unsigned long ms) {
-  look_right();
+  look_right();  // servo_ctrl_t
   delay(ms);
   return get_distance();
 }
 int sensor_t::get_left_distance(unsigned long ms) {
-  look_left();
+  look_left();  // servo_ctrl_t
   delay(ms);
   return get_distance();
-}
-
-void sensor_t::look_fornt() {
-  // Look to the fornt and measure distance
-  _servo_look->write(90);
-}
-
-void sensor_t::look_right() {
-  // Look to the right and measure distance
-  _servo_look->write(180);
-}
-
-void sensor_t::look_left() {
-  // Look to the left and measure distance
-  _servo_look->write(0);
 }

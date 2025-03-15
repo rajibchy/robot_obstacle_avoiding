@@ -30,6 +30,7 @@
 #define _robot_main_h_
 
 // Robot Obstacle Avoidance with Low Power Management (Arduino Uno)
+#include <Arduino.h>
 #include "config.h"
 
 #ifdef USE_ADAFRUIT_V2
@@ -39,8 +40,8 @@
 #include <AFMotor.h>
 #endif  //!USE_ADAFRUIT_V1
 
-#include <Servo.h>
 #include "sensor.h"
+
 #include "robot-position.h"
 
 
@@ -63,8 +64,8 @@ private:
   AF_DCMotor *_right_front;  ///< Right front motor
   AF_DCMotor *_left_front;   ///< Left front motor
   AF_DCMotor *_left_back;    ///< Left back motor
-#endif                //!USE_ADAFRUIT_V2
-  sensor_t *_sensor;  ///< Servo sensor to control the looking direction
+#endif                   //!USE_ADAFRUIT_V2
+  sensor_t *_sensor;     ///< Servo sensor to control the looking direction
 
 public:
   /**
